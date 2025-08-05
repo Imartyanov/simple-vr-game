@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Simple VR Game</title>
+    <!-- Include A-Frame library for WebXR support -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <!-- A-Frame scene contains all VR entities -->
+    <a-scene>
+      <!-- Ground plane -->
+      <a-plane rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
+      <!-- Camera entity enables movement and look controls -->
+      <a-entity id="player" camera wasd-controls look-controls position="0 1.6 0"></a-entity>
+      <!-- Ball the player can move towards the target -->
+      <a-sphere id="ball" position="0 1 -2" radius="0.2" color="#FFC65D"></a-sphere>
+      <!-- Target box that changes colour upon collision -->
+      <a-box id="target" position="0 1 -6" depth="0.5" height="0.5" width="1" color="#F16745"></a-box>
+      <!-- Optional sky for better immersion -->
+      <a-sky color="#ECECEC"></a-sky>
+      
+      <script>
+        /*
+         * Very basic collision detection between the ball and the target. When the
+         * ball approaches the target within a certain radius, the target's colour
+         * changes to indicate a successful hit. This demonstrates simple
+         * interactivity without requiring additional libraries.
+         */
+        AFRAME.registerComponent('collider-check', {
+          tick: function () {
+            var ball = document.querySelector('#ball');
+            var target = document.querySelector('#target');
+            var ballPos = ball.object3D.position;
+            var targetPos = target.object3D.position;
+            var distance = ballPos.distanceTo(targetPos);
+            if (distance < 0.7) {
+              target.setAttribute('color', '#88C0D0');
+            }
+          }
+        });
+        document.querySelector('#ball').setAttribute('collider-check', '');
+      </script>
+    </a-scene>
+  </body>
+</html>
