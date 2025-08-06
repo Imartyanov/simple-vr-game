@@ -48,10 +48,17 @@
           barrel.setAttribute('radius', 0.025);
           barrel.setAttribute('height', 0.25);
           barrel.setAttribute('color', '#222');
-          barrel.setAttribute('rotation', '90 0 0');
+       
           barrel.setAttribute('position', '0 0.03 -0.22');
-          this.el.appendChild(handle);
-          this.el.appendChild(barrel);
+        
+                  // Create a gun group and rotate it so the muzzle points forward
+        const gun = document.createElement('a-entity');
+        gun.setAttribute('rotation', '-90 0 0');
+        gun.appendChild(handle);
+        gun.appendChild(barrel);
+        this.el.appendChild(gun);
+
+        
 
           // Bind shoot function to preserve context.
           this.shoot = this.shoot.bind(this);
@@ -82,6 +89,9 @@
           // Determine direction along controller's forward axis (Z) in world space
           const dir = new AFRAME.THREE.Vector3();
           this.el.object3D.getWorldDirection(dir);
+                // Rotate direction 90 degrees around X axis so bullets fire forward
+      didir.applyAxisAngle(new AFRAME.THREE.Vector3(1, 0, 0), -Math.PI / 2);
+
           // Set bullet component with speed and direction
           bulletEl.setAttribute('bullet', `speed: ${this.data.bulletSpeed}; direction: ${dir.x} ${dir.y} ${dir.z}`);
           // Add bullet to scene
