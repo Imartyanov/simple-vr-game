@@ -1,200 +1,62 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>VR Shooter MVP</title>
-    <meta name="description" content="Simple VR shooter with pistol and random targets">
-    <!-- Load A-Frame -->
-    <script type="text/javascript" nonce="d1f689509c5d40e9b59eee9df7b" src="//local.adguard.org?ts=1754502431798&amp;type=content-script&amp;dmn=files09.oaiusercontent.com&amp;url=https%3A%2F%2Ffiles09.oaiusercontent.com%2Ffile-2qbH3QdmY4xbKU6Ecbj4bE%3Fse%3D2025-08-06T17%253A51%253A52Z%26sp%3Dr%26sv%3D2024-08-04%26sr%3Db%26rscc%3Dmax-age%253D299%252C%2520immutable%252C%2520private%26rscd%3Dattachment%253B%2520filename%253Dindex.html%26sig%3DPPzKmv9Gt85c0XOsbHHDmfm09PbNYXmjP2n7AMJbkRI%253D&amp;app=chrome.exe&amp;css=3&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="d1f689509c5d40e9b59eee9df7b" src="//local.adguard.org?ts=1754502431798&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script><script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
-  </head>
-  <body>
-    <!-- Main scene -->
-    <a-scene vr-mode-ui="enabled: true" webxr="optionalFeatures: local-floor">
-      <!-- Ground and sky for basic environment -->
-      <a-plane rotation="-90 0 0" width="50" height="50" color="#7BC8A4"></a-plane>
-      <a-sky color="#ECECEC"></a-sky>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Простая VR игра</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/super-hands@4.0.3/dist/aframe-super-hands.min.js"></script>
+  <script>
+    AFRAME.registerComponent('gun-shoot', {
+      init: function () {
+        const el = this.el;
+        el.addEventListener('triggerdown', () => {
+          const bullet = document.createElement('a-sphere');
+          bullet.setAttribute('radius', '0.05');
+          bullet.setAttribute('color', 'black');
 
-      <!-- Player rig with camera -->
-      <a-entity id="rig">
-        <a-camera position="0 1.6 0"></a-camera>
-      </a-entity>
+          const gunWorldPos = new THREE.Vector3();
+          const gunWorldQuat = new THREE.Quaternion();
+          el.object3D.getWorldPosition(gunWorldPos);
+          el.object3D.getWorldQuaternion(gunWorldQuat);
+          bullet.setAttribute('position', gunWorldPos);
 
-      <!-- Oculus Quest controllers: left and right.  Attach gun-shooter to right hand.  -->
-      <a-entity id="leftController" meta-touch-controls="hand: left"></a-entity>
-      <a-entity id="rightController" meta-touch-controls="hand: right; model: false" gun-shooter="bulletSpeed: 12; cooldown: 250"></a-entity>
-
-      <!-- Spawner for target spheres -->
-      <a-entity id="gameManager" target-spawner="interval: 3000; maxTargets: 5"></a-entity>
-    </a-scene>
-
-    <!-- Game logic scripts -->
-    <script>
-      // Component that attaches a simple pistol model to the controller and handles shooting bullets.
-      AFRAME.registerComponent('gun-shooter', {
-        schema: {
-          bulletSpeed: { type: 'number', default: 10 },
-          cooldown: { type: 'number', default: 300 }
-        },
-        init: function () {
-          this.lastShotTime = 0;
-          // Build a simple pistol using primitives and rotate it so the muzzle points forward when the controller is held normally.
-          const handle = document.createElement('a-box');
-          handle.setAttribute('depth', 0.06);
-          handle.setAttribute('height', 0.2);
-          handle.setAttribute('width', 0.04);
-          handle.setAttribute('color', '#444');
-          handle.setAttribute('position', '0 -0.05 -0.05');
-          const barrel = document.createElement('a-cylinder');
-          barrel.setAttribute('radius', 0.025);
-          barrel.setAttribute('height', 0.25);
-          barrel.setAttribute('color', '#222');
-          // Default orientation of cylinder points along the Y axis.  We leave it unchanged here and rotate the entire gun entity instead.
-          barrel.setAttribute('position', '0 0.03 -0.22');
-          // Create a gun group entity to hold the handle and barrel and rotate it downward so the muzzle points forward.
-          const gun = document.createElement('a-entity');
-          // Rotate -90 degrees around the X axis: this tilts the pistol so the Z-axis becomes forward when the controller is held naturally.
-          gun.setAttribute('rotation', '-90 0 0');
-          gun.appendChild(handle);
-          gun.appendChild(barrel);
-          this.el.appendChild(gun);
-
-          // Bind shoot function to preserve context.
-          this.shoot = this.shoot.bind(this);
-          // Listen for triggerdown events from the controller.
-          this.el.addEventListener('triggerdown', this.shoot);
-          // Fallback: allow mouse click on desktop browsers to shoot for testing.
-          window.addEventListener('click', this.shoot);
-        },
-        remove: function () {
-          // Clean up event listeners when component is removed.
-          this.el.removeEventListener('triggerdown', this.shoot);
-          window.removeEventListener('click', this.shoot);
-        },
-        shoot: function () {
-          const now = Date.now();
-          if (now - this.lastShotTime < this.data.cooldown) {
-            return;
-          }
-          this.lastShotTime = now;
-          // Create bullet entity
-          const bulletEl = document.createElement('a-sphere');
-          bulletEl.setAttribute('radius', 0.02);
-          bulletEl.setAttribute('color', '#FF0000');
-          // Determine start position at the controller's world position
-          const startPos = new AFRAME.THREE.Vector3();
-          this.el.object3D.getWorldPosition(startPos);
-          bulletEl.setAttribute('position', `${startPos.x} ${startPos.y} ${startPos.z}`);
-          // Determine direction along controller's forward axis (Z) in world space
-          const dir = new AFRAME.THREE.Vector3();
-          this.el.object3D.getWorldDirection(dir);
-          // Rotate the direction 90 degrees around the X axis so bullets fire forward instead of down.
-          dir.applyAxisAngle(new AFRAME.THREE.Vector3(1, 0, 0), -Math.PI / 2);
-          // Set bullet component with speed and rotated direction
-          bulletEl.setAttribute('bullet', `speed: ${this.data.bulletSpeed}; direction: ${dir.x} ${dir.y} ${dir.z}`);
-          // Add bullet to scene
-          this.el.sceneEl.appendChild(bulletEl);
-        }
-      });
-
-      // Bullet component moves bullet forward and handles collisions with targets.
-      AFRAME.registerComponent('bullet', {
-        schema: {
-          speed: { type: 'number', default: 10 },
-          direction: { type: 'vec3' }
-        },
-        init: function () {
-          // Record initial position to measure lifetime by distance travelled.
-          this.startPos = this.el.object3D.position.clone();
-        },
-        tick: function (time, timeDelta) {
-          // Move bullet along its direction each frame.
-          const direction = new AFRAME.THREE.Vector3(this.data.direction.x, this.data.direction.y, this.data.direction.z);
-          const moveStep = direction.multiplyScalar(this.data.speed * (timeDelta / 1000));
-          this.el.object3D.position.add(moveStep);
-          // Remove bullet after travelling 20 metres to free resources.
-          if (this.el.object3D.position.distanceTo(this.startPos) > 20) {
-            this.el.parentNode && this.el.parentNode.removeChild(this.el);
-            return;
-          }
-          // Check for collisions against targets (class 'target').
-          const targets = document.querySelectorAll('.target');
-          const bulletPos = this.el.object3D.position;
-          for (let i = 0; i < targets.length; i++) {
-            const targetEl = targets[i];
-            const targetPos = targetEl.object3D.position;
-            // Simple spherical collision check: radii approx 0.25 (target) + 0.02 (bullet)
-            if (bulletPos.distanceTo(targetPos) < 0.27) {
-              // Remove target and bullet
-              targetEl.parentNode && targetEl.parentNode.removeChild(targetEl);
-              this.el.parentNode && this.el.parentNode.removeChild(this.el);
-              return;
-            }
-          }
-        }
-      });
-
-      // Spawns coloured spheres in front of the player at intervals.
-      AFRAME.registerComponent('target-spawner', {
-        schema: {
-          interval: { type: 'number', default: 3000 },
-          maxTargets: { type: 'number', default: 5 },
-          distanceMin: { type: 'number', default: 3 },
-          distanceMax: { type: 'number', default: 6 },
-          verticalMin: { type: 'number', default: 1 },
-          verticalMax: { type: 'number', default: 2 }
-        },
-        init: function () {
-          this.activeTargets = [];
-          this.spawnTarget = this.spawnTarget.bind(this);
-          this.timer = setInterval(this.spawnTarget, this.data.interval);
-        },
-        spawnTarget: function () {
-          // Limit number of simultaneous targets
-          if (this.activeTargets.length >= this.data.maxTargets) return;
-          const sceneEl = this.el.sceneEl;
-          const cameraEl = sceneEl.camera.el;
-          // Choose random distance and angle within a ±45° field
-          const distance = this.data.distanceMin + Math.random() * (this.data.distanceMax - this.data.distanceMin);
-          const angle = (Math.random() - 0.5) * (Math.PI / 2);
-          const height = this.data.verticalMin + Math.random() * (this.data.verticalMax - this.data.verticalMin);
-          // Determine world position of camera
-          const camPos = new AFRAME.THREE.Vector3();
-          cameraEl.object3D.getWorldPosition(camPos);
-          // Determine forward direction of camera projected onto XZ plane
-          const forward = new AFRAME.THREE.Vector3();
-          cameraEl.object3D.getWorldDirection(forward);
-          forward.y = 0;
-          forward.normalize();
-          // Determine a perpendicular vector to forward (to the right)
-          const right = new AFRAME.THREE.Vector3().crossVectors(forward, new AFRAME.THREE.Vector3(0, 1, 0)).normalize();
-          // Compute final position: forward * distance * cos(angle) + right * distance * sin(angle)
-          const spawnPos = camPos.clone();
-          const forwardComponent = forward.clone().multiplyScalar(distance * Math.cos(angle));
-          const rightComponent = right.clone().multiplyScalar(distance * Math.sin(angle));
-          spawnPos.add(forwardComponent).add(rightComponent);
-          spawnPos.y += height;
-          // Create target sphere
-          const targetEl = document.createElement('a-sphere');
-          targetEl.setAttribute('radius', 0.25);
-          targetEl.setAttribute('position', `${spawnPos.x} ${spawnPos.y} ${spawnPos.z}`);
-          // Random colour selection
-          const colours = ['#EF2D5E', '#4CC3D9', '#FFC65D', '#7BC8A4', '#9370DB'];
-          targetEl.setAttribute('color', colours[Math.floor(Math.random() * colours.length)]);
-          targetEl.classList.add('target');
-          sceneEl.appendChild(targetEl);
-          this.activeTargets.push(targetEl);
-          // Remove reference when target is removed from scene
-          targetEl.addEventListener('removed', () => {
-            const idx = this.activeTargets.indexOf(targetEl);
-            if (idx !== -1) {
-              this.activeTargets.splice(idx, 1);
-            }
+          const direction = new THREE.Vector3(0, 0, -1); // направление "вперёд"
+          direction.applyQuaternion(gunWorldQuat);
+          bullet.setAttribute('velocity', {
+            x: direction.x * 10,
+            y: direction.y * 10,
+            z: direction.z * 10
           });
-        },
-        remove: function () {
-          clearInterval(this.timer);
-        }
-      });
-    </script>
-  </body>
+
+          bullet.setAttribute('dynamic-body', 'mass: 0.1;');
+          el.sceneEl.appendChild(bullet);
+        });
+      }
+    });
+  </script>
+</head>
+<body>
+  <a-scene physics="debug: false">
+    <!-- Камера -->
+    <a-entity id="cameraRig" position="0 1.6 0">
+      <a-entity camera wasd-controls look-controls></a-entity>
+    </a-entity>
+
+    <!-- Пистолет, привязанный к правому контроллеру -->
+    <a-entity id="gun" laser-controls="hand: right" gun-shoot rotation="0 0 0">
+      <a-box width="0.05" height="0.05" depth="0.3" color="#333" position="0 0 -0.15"></a-box>
+    </a-entity>
+
+    <!-- Плоскость -->
+    <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
+
+    <!-- Примеры целей -->
+    <a-sphere position="0 1.25 -5" radius="0.3" color="#EF2D5E"></a-sphere>
+    <a-box position="-1 1.5 -4" depth="0.4" height="0.4" width="0.4" color="#4CC3D9"></a-box>
+    <a-cylinder position="1 1.3 -3" radius="0.2" height="0.6" color="#FFC65D"></a-cylinder>
+
+    <a-sky color="#ECECEC"></a-sky>
+  </a-scene>
+</body>
 </html>
