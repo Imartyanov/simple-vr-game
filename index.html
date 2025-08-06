@@ -5,57 +5,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Простая VR игра</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/super-hands@4.0.3/dist/aframe-super-hands.min.js"></script>
   <script>
-    AFRAME.registerComponent('gun-shoot', {
+    AFRAME.registerComponent('gun', {
       init: function () {
-        const el = this.el;
-        el.addEventListener('triggerdown', () => {
+        this.el.setAttribute('rotation', '90 0 0'); // повернуть пистолет дулом вперёд
+
+        this.el.addEventListener('triggerdown', () => {
           const bullet = document.createElement('a-sphere');
           bullet.setAttribute('radius', '0.05');
           bullet.setAttribute('color', 'black');
 
+          // Получаем мировые координаты и кватернион пистолета
           const gunWorldPos = new THREE.Vector3();
           const gunWorldQuat = new THREE.Quaternion();
-          el.object3D.getWorldPosition(gunWorldPos);
-          el.object3D.getWorldQuaternion(gunWorldQuat);
-          bullet.setAttribute('position', gunWorldPos);
+          this.el.object3D.getWorldPosition(gunWorldPos);
+          this.el.object3D.getWorldQuaternion(gunWorldQuat);
 
-          const direction = new THREE.Vector3(0, 0, -1); // направление "вперёд"
-          direction.applyQuaternion(gunWorldQuat);
+          bullet.setAttribute('position', `${gunWorldPos.x} ${gunWorldPos.y} ${gunWorldPos.z}`);
+
+          const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(gunWorldQuat).normalize();
+
           bullet.setAttribute('velocity', {
             x: direction.x * 10,
             y: direction.y * 10,
             z: direction.z * 10
           });
 
-          bullet.setAttribute('dynamic-body', 'mass: 0.1;');
-          el.sceneEl.appendChild(bullet);
+          this.el.sceneEl.appendChild(bullet);
         });
       }
     });
   </script>
 </head>
 <body>
-  <a-scene physics="debug: false">
-    <!-- Камера -->
-    <a-entity id="cameraRig" position="0 1.6 0">
-      <a-entity camera wasd-controls look-controls></a-entity>
+  <a-scene>
+    <a-entity camera position="0 1.6 0"></a-entity>
+
+    <a-entity id="gun" position="0 1.4 -0.5" rotation="90 0 0" gun>
+      <a-cylinder height="0.3" radius="0.05" color="#333" rotation="90 0 0" position="0 0 -0.15"></a-cylinder>
     </a-entity>
 
-    <!-- Пистолет, привязанный к правому контроллеру -->
-    <a-entity id="gun" laser-controls="hand: right" gun-shoot rotation="0 0 0">
-      <a-box width="0.05" height="0.05" depth="0.3" color="#333" position="0 0 -0.15"></a-box>
-    </a-entity>
-
-    <!-- Плоскость -->
-    <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
-
-    <!-- Примеры целей -->
-    <a-sphere position="0 1.25 -5" radius="0.3" color="#EF2D5E"></a-sphere>
-    <a-box position="-1 1.5 -4" depth="0.4" height="0.4" width="0.4" color="#4CC3D9"></a-box>
-    <a-cylinder position="1 1.3 -3" radius="0.2" height="0.6" color="#FFC65D"></a-cylinder>
-
+    <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9" shadow></a-box>
+    <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E" shadow></a-sphere>
+    <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow></a-cylinder>
+    <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4" shadow></a-plane>
     <a-sky color="#ECECEC"></a-sky>
   </a-scene>
 </body>
