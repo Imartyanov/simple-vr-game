@@ -5,7 +5,7 @@
     <title>VR Shooter MVP</title>
     <meta name="description" content="Simple VR shooter with pistol and random targets">
     <!-- Load A-Frame -->
-    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    <script type="text/javascript" nonce="d1f689509c5d40e9b59eee9df7b" src="//local.adguard.org?ts=1754502431798&amp;type=content-script&amp;dmn=files09.oaiusercontent.com&amp;url=https%3A%2F%2Ffiles09.oaiusercontent.com%2Ffile-2qbH3QdmY4xbKU6Ecbj4bE%3Fse%3D2025-08-06T17%253A51%253A52Z%26sp%3Dr%26sv%3D2024-08-04%26sr%3Db%26rscc%3Dmax-age%253D299%252C%2520immutable%252C%2520private%26rscd%3Dattachment%253B%2520filename%253Dindex.html%26sig%3DPPzKmv9Gt85c0XOsbHHDmfm09PbNYXmjP2n7AMJbkRI%253D&amp;app=chrome.exe&amp;css=3&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="d1f689509c5d40e9b59eee9df7b" src="//local.adguard.org?ts=1754502431798&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script><script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
   </head>
   <body>
     <!-- Main scene -->
@@ -37,7 +37,7 @@
         },
         init: function () {
           this.lastShotTime = 0;
-          // Build a simple pistol using primitives.  It will be a child of the controller entity (this.el).
+          // Build a simple pistol using primitives and rotate it so the muzzle points forward when the controller is held normally.
           const handle = document.createElement('a-box');
           handle.setAttribute('depth', 0.06);
           handle.setAttribute('height', 0.2);
@@ -48,17 +48,15 @@
           barrel.setAttribute('radius', 0.025);
           barrel.setAttribute('height', 0.25);
           barrel.setAttribute('color', '#222');
-       
+          // Default orientation of cylinder points along the Y axis.  We leave it unchanged here and rotate the entire gun entity instead.
           barrel.setAttribute('position', '0 0.03 -0.22');
-        
-                  // Create a gun group and rotate it so the muzzle points forward
-        const gun = document.createElement('a-entity');
-        gun.setAttribute('rotation', '-90 0 0');
-        gun.appendChild(handle);
-        gun.appendChild(barrel);
-        this.el.appendChild(gun);
-
-        
+          // Create a gun group entity to hold the handle and barrel and rotate it downward so the muzzle points forward.
+          const gun = document.createElement('a-entity');
+          // Rotate -90 degrees around the X axis: this tilts the pistol so the Z-axis becomes forward when the controller is held naturally.
+          gun.setAttribute('rotation', '-90 0 0');
+          gun.appendChild(handle);
+          gun.appendChild(barrel);
+          this.el.appendChild(gun);
 
           // Bind shoot function to preserve context.
           this.shoot = this.shoot.bind(this);
@@ -89,10 +87,9 @@
           // Determine direction along controller's forward axis (Z) in world space
           const dir = new AFRAME.THREE.Vector3();
           this.el.object3D.getWorldDirection(dir);
-                // Rotate direction 90 degrees around X axis so bullets fire forward
-      didir.applyAxisAngle(new AFRAME.THREE.Vector3(1, 0, 0), -Math.PI / 2);
-
-          // Set bullet component with speed and direction
+          // Rotate the direction 90 degrees around the X axis so bullets fire forward instead of down.
+          dir.applyAxisAngle(new AFRAME.THREE.Vector3(1, 0, 0), -Math.PI / 2);
+          // Set bullet component with speed and rotated direction
           bulletEl.setAttribute('bullet', `speed: ${this.data.bulletSpeed}; direction: ${dir.x} ${dir.y} ${dir.z}`);
           // Add bullet to scene
           this.el.sceneEl.appendChild(bulletEl);
