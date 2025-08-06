@@ -1,143 +1,193 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
     <meta charset="utf-8">
-    <title>VR Shooter Game</title>
-    <!-- Include A-Frame library for WebXR support -->
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <style>
-      body { margin: 0; overflow: hidden; }
-    </style>
+    <title>VR Shooter MVP</title>
+    <meta name="description" content="Simple VR shooter with pistol and random targets">
+    <!-- Load A-Frame -->
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
   </head>
   <body>
-    <!-- A-Frame scene containing the world and all entities -->
-    <a-scene>
-      <!-- Ground plane -->
-      <a-plane rotation="-90 0 0" width="30" height="30" color="#7BC8A4"></a-plane>
-      <!-- Sky -->
+    <!-- Main scene -->
+    <a-scene vr-mode-ui="enabled: true" webxr="optionalFeatures: local-floor">
+      <!-- Ground and sky for basic environment -->
+      <a-plane rotation="-90 0 0" width="50" height="50" color="#7BC8A4"></a-plane>
       <a-sky color="#ECECEC"></a-sky>
-      <!-- Manager to handle spawning targets -->
-      <a-entity id="game-manager"></a-entity>
-      <!-- Player with camera; gun attached as a child -->
-      <a-entity id="player" camera wasd-controls look-controls position="0 1.6 0">
-        <a-entity id="gun" position="0 -0.3 -0.5">
-          <!-- Simple low‑poly revolver using primitive shapes -->
-          <a-box position="-0.05 0 -0.05" depth="0.1" height="0.2" width="0.1" color="#4A4A4A"></a-box>
-          <a-cylinder radius="0.03" height="0.4" position="0.1 0 0" rotation="0 0 90" color="#777777"></a-cylinder>
-        </a-entity>
+
+      <!-- Player rig with camera -->
+      <a-entity id="rig">
+        <a-camera position="0 1.6 0"></a-camera>
       </a-entity>
 
-      <script>
-        /*
-         * This script adds dynamic gameplay elements: a simple low‑poly revolver held
-         * by the player, randomly spawning spheres in front of the player, and a
-         * shooting mechanism. Clicking shoots a bullet in the direction the
-         * player is facing. Bullets destroy spheres upon collision.
-         */
-        
-        // Component responsible for spawning spheres (targets) in front of the player
-        AFRAME.registerComponent('game-manager', {
-          init: function () {
-            const scene = this.el.sceneEl;
-            const spawnSphere = () => {
-              const sphere = document.createElement('a-sphere');
-              sphere.classList.add('targetSphere');
-              sphere.setAttribute('radius', '0.2');
-              sphere.setAttribute('color', '#FFC65D');
-              // Determine spawn position relative to player
-              const cam = document.querySelector('#player');
-              const dir = new THREE.Vector3();
-              cam.object3D.getWorldDirection(dir);
-              const pos = cam.object3D.position.clone();
-              // Random lateral offsets so spheres aren't always centered
-              const lateral = new THREE.Vector3(
-                (Math.random() - 0.5) * 2,      // x offset between -1 and 1
-                Math.random() * 2,              // y offset between 0 and 2
-                0
-              );
-              // Forward distance between 3 and 6 units
-              const forwardDist = 3 + Math.random() * 3;
-              const forward = dir.clone().normalize().multiplyScalar(forwardDist);
-              const spawnPos = pos.clone().add(forward).add(lateral);
-              sphere.setAttribute('position', `${spawnPos.x} ${spawnPos.y} ${spawnPos.z}`);
-              scene.appendChild(sphere);
-            };
-            // Spawn an initial target and set up a recurring spawn interval
-            spawnSphere();
-            this.spawnInterval = setInterval(spawnSphere, 3000);
-          },
-          remove: function () {
-            clearInterval(this.spawnInterval);
-          }
-        });
+      <!-- Oculus Quest controllers: left and right.  Attach gun-shooter to right hand.  -->
+      <a-entity id="leftController" meta-touch-controls="hand: left"></a-entity>
+      <a-entity id="rightController" meta-touch-controls="hand: right; model: false" gun-shooter="bulletSpeed: 12; cooldown: 250"></a-entity>
 
-        // Component attached to the gun for shooting bullets
-        AFRAME.registerComponent('gun-shooter', {
-          init: function () {
-            const scene = this.el.sceneEl;
-            this.shoot = () => {
-              const bullet = document.createElement('a-sphere');
-              bullet.setAttribute('radius', '0.05');
-              bullet.setAttribute('color', '#FAD02C');
-              const cam = document.querySelector('#player');
-              const dir = new THREE.Vector3();
-              cam.object3D.getWorldDirection(dir);
-              const startPos = cam.object3D.position
-                .clone()
-                .add(dir.clone().multiplyScalar(0.5));
-              bullet.setAttribute('position', `${startPos.x} ${startPos.y} ${startPos.z}`);
-              bullet.setAttribute('bullet', { direction: `${dir.x} ${dir.y} ${dir.z}` });
-              scene.appendChild(bullet);
-            };
-            // Shoot when the user clicks anywhere on the screen
-            window.addEventListener('click', this.shoot);
-          },
-          remove: function () {
-            window.removeEventListener('click', this.shoot);
-          }
-        });
-
-        // Component controlling bullet movement and collision detection
-        AFRAME.registerComponent('bullet', {
-          schema: {
-            direction: { type: 'vec3' },
-            speed: { type: 'number', default: 5 }
-          },
-          tick: function (time, timeDelta) {
-            // Move bullet in its specified direction
-            const dirVec = new THREE.Vector3(this.data.direction.x, this.data.direction.y, this.data.direction.z)
-              .clone()
-              .normalize()
-              .multiplyScalar(this.data.speed * timeDelta / 1000);
-            this.el.object3D.position.add(dirVec);
-            // Check collisions with target spheres
-            const bulletPos = this.el.object3D.position;
-            const spheres = document.querySelectorAll('.targetSphere');
-            for (let i = 0; i < spheres.length; i++) {
-              const s = spheres[i];
-              const sPos = s.object3D.position;
-              const dist = bulletPos.distanceTo(sPos);
-              const radiusSum = 0.05 + parseFloat(s.getAttribute('radius'));
-              if (dist < radiusSum) {
-                // Remove sphere and bullet upon collision
-                if (s.parentNode) s.parentNode.removeChild(s);
-                if (this.el.parentNode) this.el.parentNode.removeChild(this.el);
-                return;
-              }
-            }
-            // Remove bullet if it travels too far
-            if (this.el.object3D.position.length() > 50) {
-              if (this.el.parentNode) this.el.parentNode.removeChild(this.el);
-            }
-          }
-        });
-
-        // Initialise game components after DOM is ready
-        document.addEventListener('DOMContentLoaded', () => {
-          document.querySelector('#game-manager').setAttribute('game-manager', '');
-          document.querySelector('#gun').setAttribute('gun-shooter', '');
-        });
-      </script>
+      <!-- Spawner for target spheres -->
+      <a-entity id="gameManager" target-spawner="interval: 3000; maxTargets: 5"></a-entity>
     </a-scene>
+
+    <!-- Game logic scripts -->
+    <script>
+      // Component that attaches a simple pistol model to the controller and handles shooting bullets.
+      AFRAME.registerComponent('gun-shooter', {
+        schema: {
+          bulletSpeed: { type: 'number', default: 10 },
+          cooldown: { type: 'number', default: 300 }
+        },
+        init: function () {
+          this.lastShotTime = 0;
+          // Build a simple pistol using primitives.  It will be a child of the controller entity (this.el).
+          const handle = document.createElement('a-box');
+          handle.setAttribute('depth', 0.06);
+          handle.setAttribute('height', 0.2);
+          handle.setAttribute('width', 0.04);
+          handle.setAttribute('color', '#444');
+          handle.setAttribute('position', '0 -0.05 -0.05');
+          const barrel = document.createElement('a-cylinder');
+          barrel.setAttribute('radius', 0.025);
+          barrel.setAttribute('height', 0.25);
+          barrel.setAttribute('color', '#222');
+          barrel.setAttribute('rotation', '90 0 0');
+          barrel.setAttribute('position', '0 0.03 -0.22');
+          this.el.appendChild(handle);
+          this.el.appendChild(barrel);
+
+          // Bind shoot function to preserve context.
+          this.shoot = this.shoot.bind(this);
+          // Listen for triggerdown events from the controller.
+          this.el.addEventListener('triggerdown', this.shoot);
+          // Fallback: allow mouse click on desktop browsers to shoot for testing.
+          window.addEventListener('click', this.shoot);
+        },
+        remove: function () {
+          // Clean up event listeners when component is removed.
+          this.el.removeEventListener('triggerdown', this.shoot);
+          window.removeEventListener('click', this.shoot);
+        },
+        shoot: function () {
+          const now = Date.now();
+          if (now - this.lastShotTime < this.data.cooldown) {
+            return;
+          }
+          this.lastShotTime = now;
+          // Create bullet entity
+          const bulletEl = document.createElement('a-sphere');
+          bulletEl.setAttribute('radius', 0.02);
+          bulletEl.setAttribute('color', '#FF0000');
+          // Determine start position at the controller's world position
+          const startPos = new AFRAME.THREE.Vector3();
+          this.el.object3D.getWorldPosition(startPos);
+          bulletEl.setAttribute('position', `${startPos.x} ${startPos.y} ${startPos.z}`);
+          // Determine direction along controller's forward axis (Z) in world space
+          const dir = new AFRAME.THREE.Vector3();
+          this.el.object3D.getWorldDirection(dir);
+          // Set bullet component with speed and direction
+          bulletEl.setAttribute('bullet', `speed: ${this.data.bulletSpeed}; direction: ${dir.x} ${dir.y} ${dir.z}`);
+          // Add bullet to scene
+          this.el.sceneEl.appendChild(bulletEl);
+        }
+      });
+
+      // Bullet component moves bullet forward and handles collisions with targets.
+      AFRAME.registerComponent('bullet', {
+        schema: {
+          speed: { type: 'number', default: 10 },
+          direction: { type: 'vec3' }
+        },
+        init: function () {
+          // Record initial position to measure lifetime by distance travelled.
+          this.startPos = this.el.object3D.position.clone();
+        },
+        tick: function (time, timeDelta) {
+          // Move bullet along its direction each frame.
+          const direction = new AFRAME.THREE.Vector3(this.data.direction.x, this.data.direction.y, this.data.direction.z);
+          const moveStep = direction.multiplyScalar(this.data.speed * (timeDelta / 1000));
+          this.el.object3D.position.add(moveStep);
+          // Remove bullet after travelling 20 metres to free resources.
+          if (this.el.object3D.position.distanceTo(this.startPos) > 20) {
+            this.el.parentNode && this.el.parentNode.removeChild(this.el);
+            return;
+          }
+          // Check for collisions against targets (class 'target').
+          const targets = document.querySelectorAll('.target');
+          const bulletPos = this.el.object3D.position;
+          for (let i = 0; i < targets.length; i++) {
+            const targetEl = targets[i];
+            const targetPos = targetEl.object3D.position;
+            // Simple spherical collision check: radii approx 0.25 (target) + 0.02 (bullet)
+            if (bulletPos.distanceTo(targetPos) < 0.27) {
+              // Remove target and bullet
+              targetEl.parentNode && targetEl.parentNode.removeChild(targetEl);
+              this.el.parentNode && this.el.parentNode.removeChild(this.el);
+              return;
+            }
+          }
+        }
+      });
+
+      // Spawns coloured spheres in front of the player at intervals.
+      AFRAME.registerComponent('target-spawner', {
+        schema: {
+          interval: { type: 'number', default: 3000 },
+          maxTargets: { type: 'number', default: 5 },
+          distanceMin: { type: 'number', default: 3 },
+          distanceMax: { type: 'number', default: 6 },
+          verticalMin: { type: 'number', default: 1 },
+          verticalMax: { type: 'number', default: 2 }
+        },
+        init: function () {
+          this.activeTargets = [];
+          this.spawnTarget = this.spawnTarget.bind(this);
+          this.timer = setInterval(this.spawnTarget, this.data.interval);
+        },
+        spawnTarget: function () {
+          // Limit number of simultaneous targets
+          if (this.activeTargets.length >= this.data.maxTargets) return;
+          const sceneEl = this.el.sceneEl;
+          const cameraEl = sceneEl.camera.el;
+          // Choose random distance and angle within a ±45° field
+          const distance = this.data.distanceMin + Math.random() * (this.data.distanceMax - this.data.distanceMin);
+          const angle = (Math.random() - 0.5) * (Math.PI / 2);
+          const height = this.data.verticalMin + Math.random() * (this.data.verticalMax - this.data.verticalMin);
+          // Determine world position of camera
+          const camPos = new AFRAME.THREE.Vector3();
+          cameraEl.object3D.getWorldPosition(camPos);
+          // Determine forward direction of camera projected onto XZ plane
+          const forward = new AFRAME.THREE.Vector3();
+          cameraEl.object3D.getWorldDirection(forward);
+          forward.y = 0;
+          forward.normalize();
+          // Determine a perpendicular vector to forward (to the right)
+          const right = new AFRAME.THREE.Vector3().crossVectors(forward, new AFRAME.THREE.Vector3(0, 1, 0)).normalize();
+          // Compute final position: forward * distance * cos(angle) + right * distance * sin(angle)
+          const spawnPos = camPos.clone();
+          const forwardComponent = forward.clone().multiplyScalar(distance * Math.cos(angle));
+          const rightComponent = right.clone().multiplyScalar(distance * Math.sin(angle));
+          spawnPos.add(forwardComponent).add(rightComponent);
+          spawnPos.y += height;
+          // Create target sphere
+          const targetEl = document.createElement('a-sphere');
+          targetEl.setAttribute('radius', 0.25);
+          targetEl.setAttribute('position', `${spawnPos.x} ${spawnPos.y} ${spawnPos.z}`);
+          // Random colour selection
+          const colours = ['#EF2D5E', '#4CC3D9', '#FFC65D', '#7BC8A4', '#9370DB'];
+          targetEl.setAttribute('color', colours[Math.floor(Math.random() * colours.length)]);
+          targetEl.classList.add('target');
+          sceneEl.appendChild(targetEl);
+          this.activeTargets.push(targetEl);
+          // Remove reference when target is removed from scene
+          targetEl.addEventListener('removed', () => {
+            const idx = this.activeTargets.indexOf(targetEl);
+            if (idx !== -1) {
+              this.activeTargets.splice(idx, 1);
+            }
+          });
+        },
+        remove: function () {
+          clearInterval(this.timer);
+        }
+      });
+    </script>
   </body>
 </html>
